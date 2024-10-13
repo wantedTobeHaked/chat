@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat</title>
+</head>
+<body>
+    <h2>Chat Room</h2>
+    <ul id="messages"></ul>
+    <input id="messageInput" type="text" placeholder="Enter message"/>
+    <button onclick="sendMessage()">Send</button>
+
+    <script>
+        const socket = new WebSocket('ws://localhost:8080');
+
+        // 서버에서 메시지를 받았을 때 처리
+        socket.onmessage = event => {
+            const data = JSON.parse(event.data);
+
+            // 받은 데이터의 타입이 'history'이면 기존 채팅 기록을 출력
+            if (data.type === 'history') {
+                data.data.forEach(message => {
+                    displayMessage(message.text);  // 기록된 메시지를 출력
+                });
+            }
+
+            // 새로운 메시지를 받았을 때 화면에 표시
+            if (data.type === 'message') {
+                displayMessage(data.data);  // 새 메시지를 출력
+            }
+        };
+
+        // 메시지를 화면에 출력하는 함수
+        function displayMessage(message) {
+            const messages = document.getElementById('messages');
+            const messageElement = document.createElement('li');
+            messageElement.textContent = message;
+            messages.appendChild(messageElement);
+        }
+
+        // 메시지 전송 함수
+        function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const messageObject = { text: input.value };  // 메시지를 객체로 만들기
+            socket.send(JSON.stringify(messageObject));  // 메시지를 JSON 문자열로 변환해 전송
+            input.value = '';  // 입력창 초기화
+        }
+    </script>
+</body>
+</html>
