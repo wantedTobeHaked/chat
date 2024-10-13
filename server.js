@@ -1,46 +1,46 @@
 const express = require('express');
+const http = require('http');
 const WebSocket = require('ws');
+const cors = require('cors');
+
 const app = express();
-const server = require('http').createServer(app);
+const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
-// 메모리에 저장할 채팅 목록
-let chatHistory = [];
+app.use(cors()); // CORS 설정
+app.use(express.json()); // JSON 요청을 처리하기 위한 설정
 
-// 클라이언트가 연결되었을 때
-wss.on('connection', ws => {
-    console.log('Client connected');
+let messages = []; // 채팅 메시지를 저장할 배열
 
-    // 새로운 클라이언트가 접속하면 기존 채팅 기록 전송
-    ws.send(JSON.stringify({ type: 'history', data: chatHistory }));
-
-    // 클라이언트로부터 메시지가 오면 처리
-    ws.on('message', message => {
-        try {
-            // 받은 메시지를 JSON으로 파싱
-            const parsedMessage = JSON.parse(message);
-            console.log(`Received: ${parsedMessage.text}`);
-
-            // 새로운 메시지를 저장
-            chatHistory.push(parsedMessage);
-
-            // 모든 클라이언트에 새 메시지 전달
-            wss.clients.forEach(client => {
-                if (client.readyState === WebSocket.OPEN) {
-                    client.send(JSON.stringify({ type: 'message', data: parsedMessage.text }));
-                }
-            });
-        } catch (error) {
-            console.error('Invalid JSON received:', error);
-        }
-    });
-
-    ws.on('close', () => console.log('Client disconnected'));
+// 채팅 목록 반환
+app.get('/messages', (req, res) => {
+    res.json(messages); // 클라이언트에 채팅 목록 전송
 });
 
-// 정적 파일 서비스 (HTML, JS, CSS 파일 제공)
-app.use(express.static('public'));
+// WebSocket 연결 설정
+wss.on('connection', (ws) => {
+    console.log('Client connected');
 
-server.listen(8080, () => {
-    console.log('Server is listening on port 8080');
+    // 클라이언트에서 메시지 수신
+    ws.on('message', (message) => {
+        const msg = JSON.parse(message); // JSON 형식으로 변환
+        messages.push(msg); // 메시지 배열에 추가
+        // 모든 클라이언트에게 메시지 전송
+        wss.clients.forEach(client => {
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify(messages)); // 전체 채팅 목록 전송
+            }
+        });
+    });
+
+    // 클라이언트 연결 종료 시
+    ws.on('close', () => {
+        console.log('Client disconnected');
+    });
+});
+
+// 서버 실행
+const PORT = process.env.PORT || 8080;
+server.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
 });
